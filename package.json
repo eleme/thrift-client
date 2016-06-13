@@ -1,0 +1,15 @@
+{
+  "name": "thrift-client",
+  "version": "0.1.0",
+  "description": "A nodejs thrift client",
+  "main": "thrift-client.js",
+  "author": "rongyi.liu@ele.me",
+  "license": "MIT",
+  "scripts": {
+    "test": "cd tests && ./test.sh"
+  },
+  "dependencies": {
+    "node-thrift-protocol": "^0.1.1",
+    "thrift-parser": "^0.2.2"
+  }
+}
