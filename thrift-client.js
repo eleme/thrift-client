@@ -150,7 +150,7 @@ class ThriftClient {
           let { id, type, name, option } = field;
           let value = sMap[id];
           if (option === 'required' && value === void 0) throw new Error(`Required field "${name}" not found`);
-          receiver[name] = this.decodeValueWithType(value, type);
+          if (value !== void 0) receiver[name] = this.decodeValueWithType(value, type);
         });
         return receiver;
       }
