@@ -3,7 +3,9 @@ const thriftParser = require('thrift-parser');
 
 class ThriftClient {
   constructor(options) {
-    this.options = Object.assign({}, options);
+    this.options = Object.assign({
+      retryDefer: 1000
+    }, options);
   }
   get queue() {
     let value = [];
@@ -24,9 +26,13 @@ class ThriftClient {
     return value;
   }
   get thrift() {
+    return this.connect();
+  }
+  connect() {
     let value = Thrift.connect(this.options);
+    value.on('error', reason => this.error(reason));
     value.on('data', message => this.receive(message));
-    Object.defineProperty(this, 'thrift', { value });
+    Object.defineProperty(this, 'thrift', { configurable: true, value });
     return value;
   }
   call(name, params = {}) {
@@ -66,6 +72,10 @@ class ThriftClient {
       default:
         throw Error('No Implement');
     }
+  }
+  error(reason) {
+    this.queue.forEach(({ reject }) => reject(reason));
+    if (this.options.retryDefer) setTimeout(() => this.connect(), this.options.retryDefer);
   }
   getThriftType(type) {
     let { typedef, struct, exception } = this.schema;
