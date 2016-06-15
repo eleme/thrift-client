@@ -19,10 +19,13 @@ class ThriftClient {
     return value;
   }
   get schema() {
-    let value = thriftParser(this.options.schema);
+    return this.updateSchema(this.options.schema);
+  }
+  updateSchema(schema) {
+    let value = thriftParser(schema);
     let { service } = value;
     if (!service) throw new Error('Service not found in schema');
-    Object.defineProperty(this, 'schema', { value });
+    Object.defineProperty(this, 'schema', { configurable: true, value });
     return value;
   }
   get thrift() {
