@@ -1,75 +1,63 @@
 const Thrift = require('node-thrift-protocol');
-const thriftParser = require('thrift-parser');
+const Storage = require('./lib/storage');
+const ThriftSchema = require('./lib/thrift-schema');
 
 class ThriftClient {
   constructor(options) {
-    this.options = Object.assign({
-      retryDefer: 1000
-    }, options);
+    Object.keys(options).forEach(key => this[key] = options[key]);
+    this.retryDefer = this.retryDefer || 1000;
+    let { host, port } = this;
+    this.thrift = Thrift.connect({ host, port });
   }
-  get queue() {
-    let value = [];
-    Object.defineProperty(this, 'queue', { value });
+  get storage() {
+    let value = new Storage();
+    Object.defineProperty(this, 'storage', { value });
     return value;
   }
-  get service() {
-    this.updateSchema(this.options.schema);
-    return this.service;
+  set schema(data) {
+    let schema = new ThriftSchema(data);
+    let desc = Object.getOwnPropertyDescriptor(ThriftClient.prototype, 'schema');
+    desc.get = () => schema;
+    Object.defineProperty(this, 'schema', desc);
   }
-  get schema() {
-    this.updateSchema(this.options.schema);
-    return this.schema;
-  }
-  updateSchema(schema) {
-    let value = thriftParser(schema);
-    let { service } = value;
-    if (!service) throw new Error('Service not found in schema');
-    Object.defineProperty(this, 'schema', { configurable: true, value });
-    value = Object.keys(value.service).map(name => value.service[name]);
-    value = Object.assign({}, ...value);
-    Object.defineProperty(this, 'service', { configurable: true, value });
-  }
-  get thrift() {
-    return this.connect();
-  }
-  connect() {
-    let value = Thrift.connect(this.options);
-    value.on('error', reason => this.error(reason));
-    value.on('data', message => this.receive(message));
-    Object.defineProperty(this, 'thrift', { configurable: true, value });
-    return value;
+  set thrift(thrift) {
+    thrift.on('error', reason => this.error(reason));
+    thrift.on('data', message => this.receive(message));
+    let desc = Object.getOwnPropertyDescriptor(ThriftClient.prototype, 'thrift');
+    desc.get = () => thrift;
+    Object.defineProperty(this, 'thrift', desc);
   }
   call(name, params = {}) {
-    let api = this.service[name];
+    let api = this.schema.service[name];
     return new Promise((resolve, reject) => {
       if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
-      let { fields } = this.encodeStruct(api.args, params);
-      let type = 'CALL';
-      let id = this.queue.push({ resolve, reject }) - 1;
-      this.thrift.write({ id, name, type, fields });
+      let { fields } = this.schema.encodeStruct(api.args, params);
+      let id = this.storage.push({ resolve, reject });
+      this.thrift.write({ id, name, type: 'CALL', fields });
     });
   }
   receive(message) {
     let { id, type, name, fields } = message;
-    let api = this.service[name];
+    let api = this.schema.service[name];
     switch (type) {
+      case 'CALL':
+        break;
       case 'EXCEPTION':
       case 'REPLY':
-        let { resolve, reject } = this.queue[id];
-        delete this.queue[id];
+        let { resolve, reject } = this.storage.take(id);
         let field = fields[0];
         if (field.id) {
           let errorType = (api.throws || []).find(item => item.id == field.id);
           if (errorType) {
             let type = errorType.name;
-            let data = this.decodeValueWithType(field, errorType.type);
+            let data = this.schema.decodeValueWithType(field, errorType.type);
             reject({ name: 'THRIFT_EXCEPTION', type, data });
           } else {
             reject({ name: 'THRIFT_ERROR', field });
           }
         } else {
           try {
-            resolve(this.decodeValueWithType(field, api.type));
+            resolve(this.schema.decodeValueWithType(field, api.type));
           } catch (reason) {
             reject(reason);
           }
@@ -80,114 +68,11 @@ class ThriftClient {
     }
   }
   error(reason) {
-    this.queue.forEach(({ reject }) => reject(reason));
-    if (this.options.retryDefer) setTimeout(() => this.connect(), this.options.retryDefer);
-  }
-  getThriftType(type) {
-    let { typedef, struct, exception } = this.schema;
-    let enumx = this.schema.enum;
-    while (typedef && type in typedef) type = typedef[type].type;
-    if (enumx && type in enumx) type = 'I32';
-    if ((struct && type in struct) || (exception && type in exception)) type = 'STRUCT';
-    if (typeof type === 'string') type = type.toUpperCase();
-    return type;
-  }
-  getPlainType(type) {
-    type = this.getThriftType(type);
-    return String(type.name || type).toUpperCase();
-  }
-  encodeStruct(schema, params) {
-    let fields = schema.map(({ id, name, type }) => {
-      if (!(name in params)) return void 0;
-      let field = this.encodeValueWithType(params[name], type);
-      field.id = +id;
-      return field;
-    }).filter(Boolean);
-    return { fields };
-  }
-  encodeValueWithType(value, type) {
-    let plainType = this.getPlainType(type);
-    switch (plainType) {
-      case 'BOOL':
-      case 'BYTE':
-      case 'I16':
-      case 'I32':
-      case 'I64':
-      case 'DOUBLE':
-      case 'STRING':
-        return { type: plainType, value };
-      case 'STRUCT': {
-        let { struct = {}, exception = {} } = this.schema;
-        value = this.encodeStruct(struct[type] || exception[type], value);
-        return { type: plainType, value };
-      }
-      case 'LIST': {
-        let { valueType } = this.getThriftType(type);
-        let data = value.map(item => this.encodeValueWithType(item, valueType).value);
-        valueType = this.getPlainType(valueType);
-        return { type: 'LIST', value: { valueType, data } };
-      }
-      case 'MAP': {
-        let { keyType, valueType } = this.getThriftType(type);
-        let data = Object.keys(value).map(k => {
-          let v = value[k];
-          let plainKeyType = this.getPlainType(keyType);
-          if (plainKeyType === 'STRUCT' || keyType.name) k = JSON.parse(k);
-          return {
-            key: this.encodeValueWithType(k, keyType).value,
-            value: this.encodeValueWithType(v, valueType).value
-          };
-        });
-        keyType = this.getPlainType(keyType);
-        valueType = this.getPlainType(valueType);
-        return { type: 'MAP', value: { keyType, valueType, data } };
-      } 
-      default:
-        throw new Error(`Error Type "${type}"`);
-    }
-  }
-  decodeValueWithType(field, type) {
-    let plainType = this.getPlainType(type);
-    switch (plainType) {
-      case 'BOOL':
-      case 'BYTE':
-      case 'I16':
-      case 'I32':
-      case 'I64':
-      case 'DOUBLE':
-      case 'STRING':
-        return field.value;
-      case 'STRUCT': {
-        let sMap = {};
-        field.value.fields.forEach(item => sMap[item.id] = item);
-        let receiver = {};
-        let { struct = {}, exception = {} } = this.schema;
-        (struct[type] || exception[type]).forEach(field => {
-          let { id, type, name, option } = field;
-          let value = sMap[id];
-          if (option === 'required' && value === void 0) throw new Error(`Required field "${name}" not found`);
-          if (value !== void 0) receiver[name] = this.decodeValueWithType(value, type);
-        });
-        return receiver;
-      }
-      case 'LIST':
-        let { valueType } = this.getThriftType(type);
-        return field.value.data.map(item => this.decodeValueWithType({ value: item }, valueType));
-      case 'MAP': {
-        let { keyType, valueType } = this.getThriftType(type);
-        let receiver = {};
-        field.value.data.forEach(({ key, value }) => {
-          key = this.decodeValueWithType({ value: key }, keyType);
-          value = this.decodeValueWithType({ value: value }, valueType);
-          let plainKeyType = this.getPlainType(keyType);
-          if (plainKeyType === 'STRUCT' || keyType.name) key = JSON.stringify(key);
-          receiver[key] = value;
-        });
-        return receiver;
-      }
-      default:
-        throw new Error(`Error Type ${JSON.stringify(type)}`);
-    }
+    this.storage.takeForEach(({ reject }) => reject(reason));
+    if (this.retryDefer) setTimeout(() => {
+      let { host, port } = this;
+      this.thrift = Thrift.connect({ host, port });
+    }, this.retryDefer);
   }
 }
 
