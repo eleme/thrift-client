@@ -61,9 +61,11 @@ class ThriftClient {
         if (field.id) {
           let errorType = (api.throws || []).find(item => item.id == field.id);
           if (errorType) {
-            reject({ type: errorType.name, data: this.decodeValueWithType(field, errorType.type) });
+            let type = errorType.name;
+            let data = this.decodeValueWithType(field, errorType.type);
+            reject({ name: 'THRIFT_EXCEPTION', type, data });
           } else {
-            reject({ type: 'UNKNOWN_ERROR', field });
+            reject({ name: 'THRIFT_ERROR', field });
           }
         } else {
           try {
