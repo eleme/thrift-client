@@ -6,8 +6,7 @@ class ThriftClient {
   constructor(options) {
     Object.keys(options).forEach(key => this[key] = options[key]);
     this.retryDefer = this.retryDefer || 1000;
-    let { host, port } = this;
-    this.thrift = Thrift.connect({ host, port });
+    this.methods = [];
   }
   get storage() {
     let value = new Storage();
@@ -27,6 +26,11 @@ class ThriftClient {
     desc.get = () => thrift;
     Object.defineProperty(this, 'thrift', desc);
   }
+  get thrift() {
+    let { host, port } = this;
+    this.thrift = Thrift.connect({ host, port });
+    return this.thrift;
+  }
   call(name, params = {}) {
     let api = this.schema.service[name];
     return new Promise((resolve, reject) => {
@@ -41,6 +45,13 @@ class ThriftClient {
     let api = this.schema.service[name];
     switch (type) {
       case 'CALL':
+        let params = this.schema.decodeStruct(api.args, { fields });
+        this.trigger(name, params).then(result => {
+          result = this.schema.encodeValueWithType(result, api.type);
+          result.id = 0;
+          let fields = [ result ];
+          this.thrift.write({ id, type: 'REPLY', name, fields });
+        }, console.error);
         break;
       case 'EXCEPTION':
       case 'REPLY':
@@ -66,6 +77,18 @@ class ThriftClient {
       default:
         throw Error('No Implement');
     }
+  }
+  register(name, ...handlers) {
+    const chains = (ctx, index = 0) => {
+      if (index >= handlers.length) return null;
+      let handler = handlers[index];
+      if (typeof handler !== 'function') return chains(ctx, index + 1);
+      return handler(ctx, () => chains(ctx, index + 1));
+    }
+    this.methods[name] = chains;
+  }
+  trigger(name, ctx) {
+    return Promise.resolve(ctx).then(this.methods[name]);
   }
   error(reason) {
     this.storage.takeForEach(({ reject }) => reject(reason));

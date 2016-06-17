@@ -1,16 +1,15 @@
 const Thrift = require('node-thrift-protocol');
 const assert = require('assert');
+const ThriftClient = require('../thrift-client');
 
-Thrift.createServer(client => {
-  client.on('data', message => {
-    let { name, id, type, fields } = message;
-    type = 'REPLY';
-    fields = [ { id: 0, type: 'STRUCT', value: { fields } } ];
-    client.write({ name, id, type, fields });
+
+Thrift.createServer(thrift => {
+  let sx = new ThriftClient({ thrift, schema });
+  sx.register('test', (ctx) => {
+    return ctx;
   });
 }).listen(8101);
 
-const ThriftClient = require('../thrift-client');
 
 const host = '127.0.0.1';
 const port = 8101;
