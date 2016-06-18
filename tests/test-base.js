@@ -2,15 +2,6 @@ const Thrift = require('node-thrift-protocol');
 const assert = require('assert');
 const ThriftClient = require('../thrift-client');
 
-
-Thrift.createServer(thrift => {
-  let sx = new ThriftClient({ thrift, schema });
-  sx.register('test', (ctx) => {
-    return ctx;
-  });
-}).listen(8101);
-
-
 const host = '127.0.0.1';
 const port = 8101;
 const schema = `
@@ -34,25 +25,50 @@ const schema = `
   }
 `;
 
+Thrift.createServer(thrift => {
+  let sx = new ThriftClient({ thrift, schema });
+  sx.register('test', (ctx) => {
+    let [ item = {} ] = ctx.list1;
+    if (item.a === 999) {
+      let message = JSON.stringify(ctx);
+      throw { 'exception': { name: 'ERROR_999', message } };
+    }
+    return ctx;
+  });
+}).listen(8101);
+
 let client = new ThriftClient({ host, port, schema });
 
-let data = {
-  list1: [ { a: 1 }, { a: 2 } ],
-  map1: { "a": { "one": 1 }, "b": { "two": 2 } },
-  map2: { "{\"a\":1}": "one", "{\"a\":2}": "two" },
-};
+let tests = [
+  () => {
+    let data = {
+      list1: [ { a: 1 }, { a: 2 } ],
+      map1: { "a": { "one": 1 }, "b": { "two": 2 } },
+      map2: { "{\"a\":1}": "one", "{\"a\":2}": "two" },
+    };
+    return client.call('test', data).then(result => {
+      assert.deepEqual(data, result);
+    });
+  },
+  () => {
+    return client.call('test', {}).then(result => {
+      throw result;
+    }, error => {
+      return error;
+    });
+  },
+  () => {
+    let data = { list1: [ { a: 999 } ], map1: {}, map2: {} };
+    return client.call('test', data).then(result => {
+      throw result;
+    }, error => {
+      assert.equal(JSON.stringify(data), error.data.message);
+    });
+  }
+];
 
-let test1 = client.call('test', data).then(result => {
-  assert.deepEqual(data, result);
-});
-
-let test2 = client.call('test', {}).then(result => {
-  throw result;
-}, reason => {
-  return reason;
-});
-
-Promise.all([ test1, test2 ]).then(() => {
+setTimeout(() => { throw 'Timeout'; }, 1000);
+Promise.all(tests.map(f => f())).then(() => {
   process.exit();
 }, reason => {
   console.error(reason);

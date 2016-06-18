@@ -51,14 +51,24 @@ class ThriftClient {
           result.id = 0;
           let fields = [ result ];
           this.thrift.write({ id, type: 'REPLY', name, fields });
-        }, console.error);
+        }, error => {
+          let fields;
+          try {
+            fields = this.schema.encodeStruct(api.throws, error).fields;
+            if (!fields.length) throw error;
+          } catch (error) {
+            let { name, message } = error;
+            fields = [ { id: 999, type: 'STRING', value: JSON.stringify({ name, message }) } ];
+          }
+          this.thrift.write({ id, type: 'REPLY', name, fields });
+        });
         break;
       case 'EXCEPTION':
       case 'REPLY':
         let { resolve, reject } = this.storage.take(id);
         let field = fields[0];
         if (field.id) {
-          let errorType = (api.throws || []).find(item => item.id == field.id);
+          let errorType = api.throws.find(item => +item.id === +field.id);
           if (errorType) {
             let type = errorType.name;
             let data = this.schema.decodeValueWithType(field, errorType.type);
