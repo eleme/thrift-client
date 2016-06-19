@@ -25,17 +25,14 @@ const schema = `
   }
 `;
 
-Thrift.createServer(thrift => {
-  let sx = new ThriftClient({ thrift, schema });
-  sx.register('test', (ctx) => {
-    let [ item = {} ] = ctx.list1;
-    if (item.a === 999) {
-      let message = JSON.stringify(ctx);
-      throw { 'exception': { name: 'ERROR_999', message } };
-    }
-    return ctx;
-  });
-}).listen(8101);
+ThriftClient.start({ port, schema }).register('test', ctx => {
+  let [ item = {} ] = ctx.list1;
+  if (item.a === 999) {
+    let message = JSON.stringify(ctx);
+    throw { 'exception': { name: 'ERROR_999', message } };
+  }
+  return ctx;
+});
 
 let client = new ThriftClient({ host, port, schema });
 

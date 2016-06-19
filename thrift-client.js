@@ -2,11 +2,31 @@ const Thrift = require('node-thrift-protocol');
 const Storage = require('./lib/storage');
 const ThriftSchema = require('./lib/thrift-schema');
 
+class ThriftListener {
+  constructor({ port, schema }) {
+    let pool = new Set();
+    this.methods = [];
+    Thrift.createServer(thrift => {
+      let client = new ThriftClient({ thrift, schema });
+      this.methods.forEach(args => client.register(...args));
+      pool.add(client);
+      thrift.on('close', () => pool.delete(client));
+    }).listen(port);
+  }
+  register(...args) {
+    this.methods.push(args);
+    return this;
+  }
+}
+
 class ThriftClient {
+  static start({ port, schema }) {
+    return new ThriftListener({ port, schema });
+  }
   constructor(options) {
     Object.keys(options).forEach(key => this[key] = options[key]);
     this.retryDefer = this.retryDefer || 1000;
-    this.methods = [];
+    this.methods = {};
   }
   get storage() {
     let value = new Storage();
@@ -27,7 +47,7 @@ class ThriftClient {
     Object.defineProperty(this, 'thrift', desc);
   }
   get thrift() {
-    let { host, port } = this;
+    let { host = '127.0.0.1', port = 3000 } = this;
     this.thrift = Thrift.connect({ host, port });
     return this.thrift;
   }
@@ -96,6 +116,7 @@ class ThriftClient {
       return handler(ctx, () => chains(ctx, index + 1));
     }
     this.methods[name] = chains;
+    return this;
   }
   trigger(name, ctx) {
     return Promise.resolve(ctx).then(this.methods[name]);
