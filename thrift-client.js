@@ -88,10 +88,10 @@ class ThriftClient extends EventEmitter {
   }
   constructor(options) {
     super();
-    Object.keys(options).forEach(key => this[key] = options[key]);
-    if (!('retryDefer' in this)) this.retryDefer = 1000;
     Object.defineProperty(this, METHODS, { value: {} });
     Object.defineProperty(this, STORAGE, { value: new Storage() });
+    Object.keys(options).forEach(key => this[key] = options[key]);
+    if (!('retryDefer' in this)) this.retryDefer = 1000;
   }
   set schema(data) {
     let schema = new ThriftSchema(data);
@@ -101,6 +101,7 @@ class ThriftClient extends EventEmitter {
   }
   set thrift(thrift) {
     thrift.on('error', reason => tcError(this, reason));
+    thrift.on('end', () => this.emit('end'));
     thrift.on('data', message => tcReceive(this, message));
     let desc = Object.getOwnPropertyDescriptor(ThriftClient.prototype, 'thrift');
     desc.get = () => thrift;

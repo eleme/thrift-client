@@ -9,7 +9,7 @@
     "test": "cd tests && ./test.sh"
   },
   "dependencies": {
-    "node-thrift-protocol": "^0.1.2",
-    "thrift-parser": "^0.2.2"
+    "node-thrift-protocol": "~0.1.2",
+    "thrift-parser": "~0.2.3"
   }
 }
