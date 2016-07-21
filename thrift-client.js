@@ -94,7 +94,7 @@ class ThriftClient extends EventEmitter {
     if (!('retryDefer' in this)) this.retryDefer = 1000;
   }
   set schema(data) {
-    let schema = new ThriftSchema(data);
+    let schema = typeof data === 'string' ? new ThriftSchema(data) : data;
     let desc = Object.getOwnPropertyDescriptor(ThriftClient.prototype, 'schema');
     desc.get = () => schema;
     Object.defineProperty(this, 'schema', desc);
