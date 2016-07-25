@@ -1,6 +1,6 @@
 {
   "name": "thrift-client",
-  "version": "0.2.5",
+  "version": "0.2.6",
   "description": "A nodejs thrift client",
   "main": "thrift-client.js",
   "author": "rongyi.liu@ele.me",
@@ -9,7 +9,7 @@
     "test": "cd tests && ./test.sh"
   },
   "dependencies": {
-    "node-thrift-protocol": "~0.1.2",
+    "node-thrift-protocol": "~0.1.4",
     "thrift-parser": "~0.2.3"
   }
 }

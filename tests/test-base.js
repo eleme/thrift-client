@@ -20,8 +20,8 @@ const schema = `
     3: required T2 map2,
   }
   service Test {
-    Args test(1: list<S1> list1, 2: T1 map1, 3: T2 map2)
-      throws (1: E1 exception),
+    Args test(1: list<S1> list1, 2: T1 map1, 3: T2 map2) throws (1: E1 exception);
+    binary bin(1: binary data);
   }
 `;
 
@@ -32,6 +32,8 @@ ThriftClient.start({ port, schema }).register('test', ctx => {
     throw { 'exception': { name: 'ERROR_999', message } };
   }
   return ctx;
+}).register('bin', ctx => {
+  return ctx.data;
 });
 
 let client = new ThriftClient({ host, port, schema });
@@ -60,6 +62,12 @@ let tests = [
       throw result;
     }, error => {
       assert.equal(JSON.stringify(data), error.data.message);
+    });
+  },
+  () => {
+    let data = new Buffer([ 1, 2, 3, 4, 5 ]);
+    return client.call('bin', { data }).then(result => {
+      assert.deepEqual(result, data);
     });
   }
 ];
