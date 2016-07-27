@@ -59,8 +59,9 @@ function tcReceive(that, { id, type, name, fields }) {
     case 'EXCEPTION':
     case 'REPLY':
       let { resolve, reject } = that[STORAGE].take(id);
+      if (fields.length === 0) return resolve(null);
       let field = fields[0];
-      if (field.id) {
+      if (field && field.id) {
         let errorType = api.throws.find(item => +item.id === +field.id);
         if (errorType) {
           let type = errorType.name;
