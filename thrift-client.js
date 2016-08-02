@@ -6,6 +6,19 @@ const { EventEmitter } = require('events');
 const METHODS = Symbol();
 const STORAGE = Symbol();
 
+const TApplicationException = [
+  { id: '1', name: 'message', type: 'string' },
+  { id: '2', name: 'type', type: 'i32' }
+];
+const UNKNOWN = 0;
+const UNKNOWN_METHOD = 1;
+const INVALID_MESSAGE_TYPE = 2;
+const WRONG_METHOD_NAME = 3;
+const BAD_SEQUENCE_ID = 4;
+const MISSING_RESULT = 5;
+const INTERNAL_ERROR = 6;
+const PROTOCOL_ERROR = 7;
+
 class ThriftListener {
   constructor({ port, schema }) {
     Object.defineProperty(this, METHODS, { value: [] });
@@ -38,30 +51,46 @@ function tcReceive(that, { id, type, name, fields }) {
   let api = that.schema.service[name];
   switch (type) {
     case 'CALL':
-      let params = that.schema.decodeStruct(api.args, { fields });
-      that.trigger(name, params).then(result => {
-        result = that.schema.encodeValueWithType(result, api.type);
-        result.id = 0;
-        let fields = [ result ];
-        that.thrift.write({ id, type: 'REPLY', name, fields });
-      }, error => {
-        let fields;
-        try {
-          fields = that.schema.encodeStruct(api.throws, error).fields;
-          if (!fields.length) throw error;
-        } catch (error) {
-          let { name, message } = error;
-          fields = [ { id: 999, type: 'STRING', value: JSON.stringify({ name, message }) } ];
-        }
-        that.thrift.write({ id, type: 'REPLY', name, fields });
-      });
+      if (that.hasRegistered(name)) {
+        let params = that.schema.decodeStruct(api.args, { fields });
+        that.trigger(name, params).then(result => {
+          result = that.schema.encodeValueWithType(result, api.type);
+          result.id = 0;
+          let fields = [ result ];
+          that.thrift.write({ id, type: 'REPLY', name, fields });
+        }, error => {
+          let fields;
+          try {
+            fields = that.schema.encodeStruct(api.throws, error).fields;
+            if (!fields.length) throw error;
+            that.thrift.write({ id, type: 'REPLY', name, fields });
+          } catch (error) {
+            let { fields } = that.schema.encodeStruct(TApplicationException, {
+              message: error.stack || error.message || error.name,
+              type: INTERNAL_ERROR 
+            });
+            that.thrift.write({ id, type: 'EXCEPTION', name, fields });
+          }
+        });
+      } else {
+        let { fields } = that.schema.encodeStruct(TApplicationException, {
+          message: `method '${name}' is not found`,
+          type: UNKNOWN_METHOD
+        });
+        that.thrift.write({ id, type: 'EXCEPTION', name, fields });
+      }
       break;
-    case 'EXCEPTION':
-    case 'REPLY':
+    case 'EXCEPTION': {
       let { resolve, reject } = that[STORAGE].take(id);
-      if (fields.length === 0) return resolve(null);
+      let params = that.schema.decodeStruct(TApplicationException, { fields });
+      reject(params);
+      break;
+    }
+    case 'REPLY': {
+      let { resolve, reject } = that[STORAGE].take(id);
+      if (fields.length === 0) return resolve(null); // return a void
       let field = fields[0];
-      if (field && field.id) {
+      if (field.id) {
         let errorType = api.throws.find(item => +item.id === +field.id);
         if (errorType) {
           let type = errorType.name;
@@ -78,6 +107,7 @@ function tcReceive(that, { id, type, name, fields }) {
         }
       }
       break;
+    }
     default:
       throw Error('No Implement');
   }
@@ -132,6 +162,7 @@ class ThriftClient extends EventEmitter {
     this[METHODS][name] = chains;
     return this;
   }
+  hasRegistered(name) { return name in this[METHODS]; }
   trigger(name, ctx) {
     return Promise.resolve(ctx).then(this[METHODS][name]);
   }
