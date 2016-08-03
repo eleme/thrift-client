@@ -21,12 +21,14 @@ const INTERNAL_ERROR = 6;
 const PROTOCOL_ERROR = 7;
 
 class ThriftListener {
-  constructor({ socket, port, schema }) {
+  constructor({ server, port, schema }) {
     Object.defineProperty(this, METHODS, { value: [] });
-    if (socket) {
-      let thrift = new Thrift(socket);
-      let client = new ThriftClient({ thrift, schema });
-      this[METHODS].forEach(args => client.register(...args));
+    if (server) {
+      server.on('connection', socket => {
+        let thrift = new Thrift(socket);
+        let client = new ThriftClient({ thrift, schema });
+        this[METHODS].forEach(args => client.register(...args));
+      });
     } else {
       Thrift.createServer(thrift => {
         let client = new ThriftClient({ thrift, schema });
