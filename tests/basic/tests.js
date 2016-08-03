@@ -9,7 +9,7 @@ setTimeout(() => {
   Promise.all(tests.map(f => f(client))).then(() => {
     process.exit();
   }, reason => {
-    console.error(reason);
+    console.error(reason); // eslint-disable-line
     process.exit(1);
   });
 });

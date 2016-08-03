@@ -5,8 +5,8 @@ const assert = require('assert');
 tests.push(client => {
   let data = {
     list1: [ { a: 1 }, { a: 2 } ],
-    map1: { "a": { "one": 1 }, "b": { "two": 2 } },
-    map2: { "{\"a\":1}": "one", "{\"a\":2}": "two" },
+    map1: { 'a': { 'one': 1 }, 'b': { 'two': 2 } },
+    map2: { '{"a":1}': 'one', '{"a":2}': 'two' }
   };
   return client.call('test', data).then(result => {
     assert.deepEqual(data, result);

@@ -38,17 +38,17 @@ class ThriftListener {
 /**
  * Process a connection error
 **/
-function tcError(that, reason) {
+let tcError = (that, reason) => {
   that[STORAGE].takeForEach(({ reject }) => reject(reason));
   if (that.retryDefer > 0) setTimeout(() => that.resetThrift(), that.retryDefer);
   that.emit('error', reason);
-}
+};
 
 
 /**
  * Process a thrift frame
 **/
-function tcReceive(that, { id, type, name, fields }) {
+let tcReceive = (that, { id, type, name, fields }) => {
   let api = that.schema.service[name];
   switch (type) {
     case 'CALL':
@@ -112,7 +112,7 @@ function tcReceive(that, { id, type, name, fields }) {
     default:
       throw Error('No Implement');
   }
-}
+};
 
 class ThriftClient extends EventEmitter {
   static start({ port, schema }) {
@@ -160,7 +160,7 @@ class ThriftClient extends EventEmitter {
       let handler = handlers[index];
       if (typeof handler !== 'function') return chains(ctx, index + 1);
       return handler(ctx, () => chains(ctx, index + 1));
-    }
+    };
     this[METHODS][name] = chains;
     return this;
   }
