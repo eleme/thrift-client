@@ -2,6 +2,7 @@ const Thrift = require('node-thrift-protocol');
 const Storage = require('./lib/storage');
 const ThriftSchema = require('./lib/thrift-schema');
 const { EventEmitter } = require('events');
+const Header = require('./lib/header');
 
 const METHODS = Symbol();
 const STORAGE = Symbol();
@@ -143,13 +144,14 @@ class ThriftClient extends EventEmitter {
     let { host = '127.0.0.1', port = 3000 } = this;
     return this.thrift = Thrift.connect({ host, port });
   }
-  call(name, params = {}) {
+  call(name, params = {}, header) {
     let api = this.schema.service[name];
     return new Promise((resolve, reject) => {
       if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
       let { fields } = this.schema.encodeStruct(api.args, params);
       let id = this[STORAGE].push({ resolve, reject });
-      this.thrift.write({ id, name, type: 'CALL', fields });
+      if (header) header = Header.encode(header);
+      this.thrift.write({ id, name, type: 'CALL', fields, header });
     });
   }
   register(name, ...handlers) {
