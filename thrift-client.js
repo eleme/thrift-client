@@ -21,12 +21,18 @@ const INTERNAL_ERROR = 6;
 const PROTOCOL_ERROR = 7;
 
 class ThriftListener {
-  constructor({ port, schema }) {
+  constructor({ socket, port, schema }) {
     Object.defineProperty(this, METHODS, { value: [] });
-    Thrift.createServer(thrift => {
+    if (socket) {
+      let thrift = new Thrift(socket);
       let client = new ThriftClient({ thrift, schema });
       this[METHODS].forEach(args => client.register(...args));
-    }).listen(port);
+    } else {
+      Thrift.createServer(thrift => {
+        let client = new ThriftClient({ thrift, schema });
+        this[METHODS].forEach(args => client.register(...args));
+      }).listen(port);
+    }
   }
   register(...args) {
     this[METHODS].push(args);
@@ -115,8 +121,8 @@ let tcReceive = (that, { id, type, name, fields }) => {
 };
 
 class ThriftClient extends EventEmitter {
-  static start({ port, schema }) {
-    return new ThriftListener({ port, schema });
+  static start(args) {
+    return new ThriftListener(args);
   }
   constructor(options) {
     super();
