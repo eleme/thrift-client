@@ -48,7 +48,7 @@ class ThriftListener {
 **/
 let tcError = (that, reason) => {
   that[STORAGE].takeForEach(({ reject }) => reject(reason));
-  if (that.retryDefer > 0) setTimeout(() => that.resetThrift(), that.retryDefer);
+  if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
   that.emit('error', reason);
 };
 
@@ -130,8 +130,10 @@ class ThriftClient extends EventEmitter {
     super();
     Object.defineProperty(this, METHODS, { value: {} });
     Object.defineProperty(this, STORAGE, { value: new Storage() });
+    // Don't use Object.assign, because setter properties may be overwrite
     Object.keys(options).forEach(key => this[key] = options[key]);
     if (!('retryDefer' in this)) this.retryDefer = 1000;
+    this.reset(this.thrift);
   }
   set schema(data) {
     let schema = new ThriftSchema(data);
@@ -139,18 +141,13 @@ class ThriftClient extends EventEmitter {
     desc.get = () => schema;
     Object.defineProperty(this, 'schema', desc);
   }
-  set thrift(thrift) {
+  reset(thrift) {
+    let { host = '127.0.0.1', port = 3000 } = this;
+    if (!thrift) thrift = Thrift.connect({ host, port });
     thrift.on('error', reason => tcError(this, reason));
     thrift.on('end', () => this.emit('end'));
     thrift.on('data', message => tcReceive(this, message));
-    let desc = Object.getOwnPropertyDescriptor(ThriftClient.prototype, 'thrift');
-    desc.get = () => thrift;
-    Object.defineProperty(this, 'thrift', desc);
-  }
-  get thrift() { return this.resetThrift(); }
-  resetThrift() {
-    let { host = '127.0.0.1', port = 3000 } = this;
-    return this.thrift = Thrift.connect({ host, port });
+    this.thrift = thrift;
   }
   call(name, params = {}, header) {
     let api = this.schema.service[name];
