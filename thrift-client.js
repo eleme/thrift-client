@@ -164,7 +164,7 @@ class ThriftClient extends EventEmitter {
       if (index >= handlers.length) return null;
       let handler = handlers[index];
       if (typeof handler !== 'function') return chains(ctx, index + 1);
-      return handler(ctx, () => chains(ctx, index + 1));
+      return handler.call(this, ctx, () => chains(ctx, index + 1));
     };
     this[METHODS][name] = chains;
     return this;
