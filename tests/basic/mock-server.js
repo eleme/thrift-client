@@ -11,6 +11,8 @@ server.register('test', ctx => {
   return ctx;
 });
 
-server.register('bin', ctx => {
-  return ctx.data;
-});
+server.register('bin', ctx => ctx.data);
+
+server.register('bignumber', ctx => ctx.data);
+
+server.register('void_call', ctx => {});

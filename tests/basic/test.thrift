@@ -21,7 +21,11 @@ service Test {
 
   Args test(1: list<S1> list1, 2: T1 map1, 3: T2 map2) throws (1: E1 exception);
 
+  void void_call();
+
   binary bin(1: binary data);
+
+  i64 bignumber(1: i64 data);
 
   bool unknown();
 
