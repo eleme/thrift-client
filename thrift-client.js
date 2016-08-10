@@ -20,18 +20,21 @@ const MISSING_RESULT = 5;
 const INTERNAL_ERROR = 6;
 const PROTOCOL_ERROR = 7;
 
-class ThriftListener {
+class ThriftListener extends EventEmitter {
   constructor({ server, port, schema }) {
+    super();
     Object.defineProperty(this, METHODS, { value: [] });
     if (server) {
       server.on('connection', socket => {
         let thrift = new Thrift(socket);
         let client = new ThriftClient({ thrift, schema });
+        client.on('error', () => thrift.end());
         this[METHODS].forEach(args => client.register(...args));
       });
     } else {
       Thrift.createServer(thrift => {
         let client = new ThriftClient({ thrift, schema });
+        client.on('error', () => thrift.end());
         this[METHODS].forEach(args => client.register(...args));
       }).listen(port);
     }

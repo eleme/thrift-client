@@ -65,8 +65,14 @@ tests.push(client => {
 });
 
 tests.push(client => {
-  return client.call('void_call').then(result => {
-    assert.equal(result, null);
-    done('void result');
-  }, console.error);
+  let { host, port } = client;
+  return new Promise((resolve, reject) => {
+    require('http').get(`http://${host}:${port}`, () => {
+      reject('must throw');
+    }).on('error', error => {
+      assert.equal(error.code, 'ECONNRESET');
+      done('close on protocol error');
+      resolve();
+    });
+  });
 });
