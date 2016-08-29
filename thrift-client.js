@@ -135,7 +135,7 @@ class ThriftClient extends EventEmitter {
     Object.defineProperty(this, STORAGE, { value: new Storage() });
     // Don't use Object.assign, because setter properties may be overwrite
     Object.keys(options).forEach(key => this[key] = options[key]);
-    if (!('retryDefer' in this)) this.retryDefer = 1000;
+    if (!('retryDefer' in this) && !this.thrift) this.retryDefer = 1000;
     this.reset(this.thrift);
   }
   set schema(data) {
