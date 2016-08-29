@@ -20,6 +20,14 @@ const MISSING_RESULT = 5;
 const INTERNAL_ERROR = 6;
 const PROTOCOL_ERROR = 7;
 
+class SocketClosedByBackEnd extends Error {
+  constructor() {
+    super('socket closed by backend');
+    this.name = 'SOCKET_CLOSED_BY_BACKEND';
+    this.status = 503;
+  }
+}
+
 class ThriftListener extends EventEmitter {
   constructor({ server, port, schema }) {
     super();
@@ -49,12 +57,14 @@ class ThriftListener extends EventEmitter {
 /**
  * Process a connection error
 **/
-let tcError = (that, reason) => {
-  that[STORAGE].takeForEach(({ reject }) => reject(reason));
+const tcError = (that, reason) => {
   if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
   that.emit('error', reason);
 };
 
+const rejectHandlers = (that, reason) => {
+  that[STORAGE].takeForEach(({ reject }) => reject(reason));
+};
 
 /**
  * Process a thrift frame
@@ -147,8 +157,8 @@ class ThriftClient extends EventEmitter {
   reset(thrift) {
     let { host = '127.0.0.1', port = 3000 } = this;
     if (!thrift) thrift = Thrift.connect({ host, port });
-    thrift.on('error', reason => tcError(this, reason));
-    thrift.on('end', () => this.emit('end'));
+    thrift.on('error', reason => rejectHandlers(this, reason) + tcError(this, reason));
+    thrift.on('end', () => rejectHandlers(this, new SocketClosedByBackEnd()) + this.emit('end'));
     thrift.on('data', message => tcReceive(this, message));
     this.thrift = thrift;
   }
