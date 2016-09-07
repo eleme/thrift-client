@@ -16,3 +16,11 @@ server.register('bin', ctx => ctx.data);
 server.register('bignumber', ctx => ctx.data);
 
 server.register('void_call', ctx => {});
+
+server.register('required_a', ctx => {});
+
+server.register('arr', ctx => {});
+
+server.register('response_a', ctx => {
+  return { b: 2 };
+});

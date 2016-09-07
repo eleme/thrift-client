@@ -3,22 +3,10 @@ const Storage = require('./lib/storage');
 const ThriftSchema = require('./lib/thrift-schema');
 const { EventEmitter } = require('events');
 const Header = require('./lib/header');
+const TApplicationException = require('./lib/tapplicationexception');
 
 const METHODS = Symbol();
 const STORAGE = Symbol();
-
-const TApplicationException = [
-  { id: '1', name: 'message', type: 'string' },
-  { id: '2', name: 'type', type: 'i32' }
-];
-const UNKNOWN = 0;
-const UNKNOWN_METHOD = 1;
-const INVALID_MESSAGE_TYPE = 2;
-const WRONG_METHOD_NAME = 3;
-const BAD_SEQUENCE_ID = 4;
-const MISSING_RESULT = 5;
-const INTERNAL_ERROR = 6;
-const PROTOCOL_ERROR = 7;
 
 class SocketClosedByBackEnd extends Error {
   constructor() {
@@ -80,37 +68,37 @@ let tcReceive = (that, { id, type, name, fields }) => {
           result.id = 0;
           let fields = [ result ];
           that.thrift.write({ id, type: 'REPLY', name, fields });
-        }, error => {
+        }).catch(error => {
           let fields;
           try {
             fields = that.schema.encodeStruct(api.throws, error).fields;
             if (!fields.length) throw error;
             that.thrift.write({ id, type: 'REPLY', name, fields });
           } catch (error) {
-            let { fields } = that.schema.encodeStruct(TApplicationException, {
+            let { fields } = that.schema.encodeStruct(TApplicationException.SCHEMA, {
               message: error.stack || error.message || error.name,
-              type: INTERNAL_ERROR 
+              type: TApplicationException.TYPE_ENUM.INTERNAL_ERROR 
             });
             that.thrift.write({ id, type: 'EXCEPTION', name, fields });
           }
         });
       } else {
-        let { fields } = that.schema.encodeStruct(TApplicationException, {
+        let { fields } = that.schema.encodeStruct(TApplicationException.SCHEMA, {
           message: `method '${name}' is not found`,
-          type: UNKNOWN_METHOD
+          type: TApplicationException.TYPE_ENUM.UNKNOWN_METHOD
         });
         that.thrift.write({ id, type: 'EXCEPTION', name, fields });
       }
       break;
     case 'EXCEPTION': {
       let { resolve, reject } = that[STORAGE].take(id);
-      let params = that.schema.decodeStruct(TApplicationException, { fields });
-      reject(params);
+      let params = that.schema.decodeStruct(TApplicationException.SCHEMA, { fields });
+      reject(new TApplicationException(params.type, params.message));
       break;
     }
     case 'REPLY': {
       let { resolve, reject } = that[STORAGE].take(id);
-      if (fields.length === 0) return resolve(null); // return a void
+      if (fields.length === 0) fields = [ { id: 0, type: 'VOID' } ];
       let field = fields[0];
       if (field.id) {
         let errorType = api.throws.find(item => +item.id === +field.id);

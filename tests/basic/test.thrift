@@ -29,4 +29,10 @@ service Test {
 
   bool unknown();
 
+  void required_a(1: required i32 a);
+
+  void arr(1: list<i32> arr);
+
+  S1 response_a();
+
 }

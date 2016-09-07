@@ -51,7 +51,7 @@ tests.push(client => {
   return client.call('unknown', { data }).then(result => {
     throw result;
   }, error => {
-    assert.equal(error.type, 1);
+    assert.equal(error.name, 'UNKNOWN_METHOD');
     done('exception on unknown method');
   });
 });
@@ -74,5 +74,32 @@ tests.push(client => {
       done('close on protocol error');
       resolve();
     });
+  });
+});
+
+tests.push(client => {
+  return client.call('required_a').then(() => {
+    throw new Error('must throw');
+  }, error => {
+    assert.equal(error.name, 'THRIFT_SCHEMA_MISMATCH_REQUEST');
+    done('pass undefined to required field');
+  });
+});
+
+tests.push(client => {
+  return client.call('arr', { arr: 1 }).then(() => {
+    throw new Error('must throw');
+  }, error => {
+    assert.equal(error.name, 'THRIFT_SCHEMA_MISMATCH_REQUEST');
+    done('pass non-list to a list');
+  });
+});
+
+tests.push(client => {
+  return client.call('response_a').then(() => {
+    throw new Error('must throw');
+  }, error => {
+    assert.equal(error.name, 'INTERNAL_ERROR');
+    done('internal error');
   });
 });
