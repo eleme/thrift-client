@@ -62,8 +62,14 @@ let tcReceive = (that, { id, type, name, fields }) => {
   switch (type) {
     case 'CALL':
       if (that.hasRegistered(name)) {
-        let params = that.schema.decodeStruct(api.args, { fields });
-        that.trigger(name, params).then(result => {
+        new Promise((resolve, reject) => {
+          try {
+            let params = that.schema.decodeStruct(api.args, { fields });
+            resolve(that.trigger(name, params));
+          } catch (error) {
+            reject(error);
+          }
+        }).then(result => {
           result = that.schema.encodeValueWithType(result, api.type);
           result.id = 0;
           let fields = [ result ];
