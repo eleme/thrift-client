@@ -1,6 +1,6 @@
 {
   "name": "thrift-client",
-  "version": "0.2.17",
+  "version": "0.2.18",
   "description": "A nodejs thrift client",
   "main": "thrift-client.js",
   "author": "rongyi.liu@ele.me",
