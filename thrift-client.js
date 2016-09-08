@@ -81,29 +81,31 @@ let tcReceive = (that, { id, type, name, fields }) => {
             if (!fields.length) throw error;
             that.thrift.write({ id, type: 'REPLY', name, fields });
           } catch (error) {
-            let { fields } = that.schema.encodeStruct(TApplicationException.SCHEMA, {
+            let fields = that.schema.encodeStruct(TApplicationException.SCHEMA, {
               message: error.stack || error.message || error.name,
               type: TApplicationException.TYPE_ENUM.INTERNAL_ERROR 
-            });
+            }).fields;
             that.thrift.write({ id, type: 'EXCEPTION', name, fields });
           }
         });
       } else {
-        let { fields } = that.schema.encodeStruct(TApplicationException.SCHEMA, {
+        let fields = that.schema.encodeStruct(TApplicationException.SCHEMA, {
           message: `method '${name}' is not found`,
           type: TApplicationException.TYPE_ENUM.UNKNOWN_METHOD
-        });
+        }).fields;
         that.thrift.write({ id, type: 'EXCEPTION', name, fields });
       }
       break;
     case 'EXCEPTION': {
-      let { resolve, reject } = that[STORAGE].take(id);
+      let item = that[STORAGE].take(id);
       let params = that.schema.decodeStruct(TApplicationException.SCHEMA, { fields });
-      reject(new TApplicationException(params.type, params.message));
+      item.reject(new TApplicationException(params.type, params.message));
       break;
     }
     case 'REPLY': {
-      let { resolve, reject } = that[STORAGE].take(id);
+      let item = that[STORAGE].take(id);
+      let resolve = item.resolve;
+      let reject = item.reject;
       if (fields.length === 0) fields = [ { id: 0, type: 'VOID' } ];
       let field = fields[0];
       if (field.id) {
@@ -149,7 +151,8 @@ class ThriftClient extends EventEmitter {
     Object.defineProperty(this, 'schema', desc);
   }
   reset(thrift) {
-    let { host = '127.0.0.1', port = 3000 } = this;
+    let host = this.host || '127.0.0.1';
+    let port = this.port || 3000;
     if (!thrift) thrift = Thrift.connect({ host, port });
     thrift.on('error', reason => rejectHandlers(this, reason) + tcError(this, reason));
     thrift.on('end', () => rejectHandlers(this, new SocketClosedByBackEnd()) + this.emit('end'));
@@ -160,7 +163,7 @@ class ThriftClient extends EventEmitter {
     let api = this.schema.service[name];
     return new Promise((resolve, reject) => {
       if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
-      let { fields } = this.schema.encodeStruct(api.args, params);
+      let fields = this.schema.encodeStruct(api.args, params).fields;
       let id = this[STORAGE].push({ resolve, reject });
       if (header) header = Header.encode(header);
       this.thrift.write({ id, name, type: 'CALL', fields, header });
