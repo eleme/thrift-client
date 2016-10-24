@@ -28,3 +28,5 @@ server.register('def_req_arg', ctx => ({ [ctx.i]: ctx.s }));
 server.register('def_res_arg', ctx => ({ i: 234 }));
 
 server.register('zero', ctx => ctx);
+
+server.register('i64', ctx => ctx);

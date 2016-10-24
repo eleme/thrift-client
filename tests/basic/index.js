@@ -125,3 +125,10 @@ tests.push(client => {
     done('zero argument');
   });
 });
+
+tests.push(client => {
+  return client.call('i64', { data: new BigNumber('1234567890123456789') }).then(result => {
+    assert.deepEqual(result.data, new BigNumber('1234567890123456789'));
+    done('i64 response self');
+  });
+});
