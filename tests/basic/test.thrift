@@ -17,6 +17,11 @@ struct Args {
   3: required T2 map2;
 }
 
+struct DefResArg {
+  1: i32 i = 233,
+  2: string s = "hehe" 
+}
+
 service Test {
 
   Args test(1: list<S1> list1, 2: T1 map1, 3: T2 map2) throws (1: E1 exception);
@@ -34,5 +39,9 @@ service Test {
   void arr(1: list<i32> arr);
 
   S1 response_a();
+
+  map<i32,string> def_req_arg(1: i32 i = 233, 2: string s = "hehe");
+
+  DefResArg def_res_arg();
 
 }

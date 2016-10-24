@@ -103,3 +103,18 @@ tests.push(client => {
     done('internal error');
   });
 });
+
+tests.push(client => {
+  return client.call('def_req_arg', { i: 234 }).then(result => {
+    assert.equal(result[234], 'hehe');
+    done('default request arguments');
+  });
+});
+
+tests.push(client => {
+  return client.call('def_res_arg').then(result => {
+    assert.equal(result.i, 234);
+    assert.equal(result.s, 'hehe');
+    done('default response arguments');
+  });
+});

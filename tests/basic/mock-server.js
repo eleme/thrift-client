@@ -24,3 +24,11 @@ server.register('arr', ctx => {});
 server.register('response_a', ctx => {
   return { b: 2 };
 });
+
+server.register('def_req_arg', ctx => {
+  return { [ctx.i]: ctx.s };
+});
+
+server.register('def_res_arg', ctx => {
+  return { i: 234 };
+});
