@@ -118,3 +118,10 @@ tests.push(client => {
     done('default response arguments');
   });
 });
+
+tests.push(client => {
+  return client.call('zero', { zero: 0 }).then(result => {
+    assert.equal(result.zero, 0);
+    done('zero argument');
+  });
+});

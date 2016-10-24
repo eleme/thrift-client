@@ -21,14 +21,10 @@ server.register('required_a', ctx => {});
 
 server.register('arr', ctx => {});
 
-server.register('response_a', ctx => {
-  return { b: 2 };
-});
+server.register('response_a', ctx => ({ b: 2 }));
 
-server.register('def_req_arg', ctx => {
-  return { [ctx.i]: ctx.s };
-});
+server.register('def_req_arg', ctx => ({ [ctx.i]: ctx.s }));
 
-server.register('def_res_arg', ctx => {
-  return { i: 234 };
-});
+server.register('def_res_arg', ctx => ({ i: 234 }));
+
+server.register('zero', ctx => ctx);

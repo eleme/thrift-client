@@ -44,4 +44,6 @@ service Test {
 
   DefResArg def_res_arg();
 
+  map<string,i32> zero(1: i32 zero);
+
 }
