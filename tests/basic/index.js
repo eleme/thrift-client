@@ -20,6 +20,16 @@ tests.push(client => {
 });
 
 tests.push(client => {
+  let hehe = Math.random();
+  return client.oneway('oneway_set_hehe', { hehe }).then(() => {
+    return new Promise(resolve => setTimeout(resolve, 100));
+  }).then(() => client.call('get_hehe')).then(result => {
+    done('oneway call and success checked');
+    assert.equal(result, hehe);
+  });
+});
+
+tests.push(client => {
   return client.call('test', {}).then(result => {
     throw result;
   }, error => {

@@ -30,3 +30,9 @@ server.register('def_res_arg', ctx => ({ i: 234 }));
 server.register('zero', ctx => ctx);
 
 server.register('i64', ctx => ctx);
+
+{
+  let hehe = 0;
+  server.register('oneway_set_hehe', ctx => hehe = ctx.hehe);
+  server.register('get_hehe', ctx => hehe);
+}

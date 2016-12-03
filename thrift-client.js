@@ -96,6 +96,16 @@ let tcReceive = (that, { id, type, name, fields }) => {
         that.thrift.write({ id, type: 'EXCEPTION', name, fields });
       }
       break;
+    case 'ONEWAY':
+      if (that.hasRegistered(name)) {
+        try {
+          let params = that.schema.decodeStruct(api.args, { fields });
+          that.trigger(name, params);
+        } catch (error) {
+          /* ignore oneway error */
+        }
+      }
+      break;
     case 'EXCEPTION': {
       let item = that[STORAGE].take(id);
       let params = that.schema.decodeStruct(TApplicationException.SCHEMA, { fields });
@@ -169,6 +179,17 @@ class ThriftClient extends EventEmitter {
       let id = this[STORAGE].push({ resolve, reject });
       if (header) header = Header.encode(header);
       this.thrift.write({ id, name, type: 'CALL', fields, header });
+    });
+  }
+  oneway(name, params = {}, header) {
+    let api = this.schema.service[name];
+    return new Promise((resolve, reject) => {
+      if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
+      let fields = this.schema.encodeStruct(api.args, params).fields;
+      let id = this[STORAGE].noop();
+      if (header) header = Header.encode(header);
+      this.thrift.write({ id, name, type: 'ONEWAY', fields, header });
+      resolve();
     });
   }
   register(name, ...handlers) {

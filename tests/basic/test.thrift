@@ -32,6 +32,9 @@ service Test {
 
   void void_call();
 
+  oneway void oneway_set_hehe(1: double hehe);
+  double get_hehe();
+
   binary bin(1: binary data);
 
   i64 bignumber(1: i64 data);
