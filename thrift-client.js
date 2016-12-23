@@ -202,6 +202,7 @@ class ThriftClient extends EventEmitter {
     this[METHODS][name] = chains;
     return this;
   }
+  end() { return this.thrift.end(); }
   hasRegistered(name) { return name in this[METHODS]; }
   trigger(name, ctx) {
     return Promise.resolve(ctx).then(this[METHODS][name]);
