@@ -150,8 +150,7 @@ class ThriftClient extends EventEmitter {
     Object.defineProperty(this, METHODS, { value: {} });
     Object.defineProperty(this, STORAGE, { value: new Storage() });
     this.ignoreResponseCheck = !!options.ignoreResponseCheck;
-    // Don't use Object.assign, because setter properties may be overwrite
-    Object.keys(options).forEach(key => this[key] = options[key]);
+    Object.assign(this, options);
     if (!('retryDefer' in this) && !this.thrift) this.retryDefer = 1000;
     this.reset(this.thrift);
   }
