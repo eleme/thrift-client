@@ -46,12 +46,10 @@ class ThriftListener extends EventEmitter {
  * Process a connection error
 **/
 const tcError = (that, reason) => {
-  if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
-  that.emit('error', reason);
-};
-
-const rejectHandlers = (that, reason) => {
   that[STORAGE].takeForEach(({ reject }) => reject(reason));
+  if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
+  that.thrift.removeAllListeners();
+  that.emit('error', reason);
 };
 
 /**
@@ -165,8 +163,8 @@ class ThriftClient extends EventEmitter {
     let host = this.host || '127.0.0.1';
     let port = this.port || 3000;
     if (!thrift) thrift = Thrift.connect({ host, port });
-    thrift.on('error', reason => rejectHandlers(this, reason) + tcError(this, reason));
-    thrift.on('end', () => rejectHandlers(this, new SocketClosedByBackEnd()) + this.emit('end'));
+    thrift.on('error', reason => tcError(this, reason));
+    thrift.on('end', () => tcError(this, new SocketClosedByBackEnd()));
     thrift.on('data', message => tcReceive(this, message));
     this.thrift = thrift;
   }
