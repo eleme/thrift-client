@@ -49,6 +49,7 @@ const tcError = (that, reason) => {
   that[STORAGE].takeForEach(({ reject }) => reject(reason));
   if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
   that.thrift.removeAllListeners();
+  that.thrift.on('error', () => { /* ignore */ });
   that.emit('error', reason);
 };
 
