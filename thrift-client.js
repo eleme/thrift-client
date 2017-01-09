@@ -213,7 +213,7 @@ class ThriftClient extends EventEmitter {
   }
   end() {
     this.state = 'CLOSED';
-    destroyThriftConnection(that.thrift);
+    destroyThriftConnection(this.thrift);
   }
   hasRegistered(name) { return name in this[METHODS]; }
   trigger(name, ctx) {
