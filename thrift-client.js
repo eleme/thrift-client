@@ -41,21 +41,6 @@ class ThriftListener extends EventEmitter {
   }
 }
 
-
-/**
- * Process a connection error
-**/
-const tcError = (that, reason) => {
-  that[STORAGE].takeForEach(({ reject }) => reject(reason));
-  if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
-  that.thrift.removeAllListeners();
-  that.thrift.on('error', () => { /* ignore */ });
-  that.emit('error', reason);
-};
-
-/**
- * Process a thrift frame
-**/
 let tcReceive = (that, { id, type, name, fields }) => {
   let api = that.schema.service[name];
   switch (type) {
@@ -140,18 +125,41 @@ let tcReceive = (that, { id, type, name, fields }) => {
   }
 };
 
+const tcError = (that, reason) => {
+  if (that.state === 'CLOSED') return;
+  that[STORAGE].takeForEach(({ reject }) => reject(reason));
+  if (that.retryDefer > 0) setTimeout(() => that.reset(), that.retryDefer);
+  that.thrift.removeAllListeners();
+  that.thrift.on('error', () => { /* ignore */ });
+  that.emit('error', reason);
+};
+
+const tcConnect = (that) => {
+  if (that.state === 'CLOSED') return;
+  that.state = 'CONNECTED';
+  that.emit('connect');
+};
+
+const destroyThriftConnection = connection => {
+  connection.removeAllListeners();
+  connection.on('error', () => { /* ignore */ });
+  connection.end();
+  connection.socket.destroy();
+};
+
 class ThriftClient extends EventEmitter {
   static start(args) {
     return new ThriftListener(args);
   }
   constructor(options) {
     super();
+    this.state = 'INITIAL';
     Object.defineProperty(this, METHODS, { value: {} });
     Object.defineProperty(this, STORAGE, { value: new Storage() });
+    Object.assign(this, options, { thrift: null });
     this.ignoreResponseCheck = !!options.ignoreResponseCheck;
-    Object.assign(this, options);
     if (!('retryDefer' in this) && !this.thrift) this.retryDefer = 1000;
-    this.reset(this.thrift);
+    this.reset(options.thrift);
   }
   set schema(data) {
     let { ignoreResponseCheck } = this;
@@ -165,8 +173,11 @@ class ThriftClient extends EventEmitter {
     let port = this.port || 3000;
     if (!thrift) thrift = Thrift.connect({ host, port });
     thrift.on('error', reason => tcError(this, reason));
+    thrift.on('timeout', reason => tcError(this, reason));
     thrift.on('end', () => tcError(this, new SocketClosedByBackEnd()));
     thrift.on('data', message => tcReceive(this, message));
+    thrift.on('connect', () => tcConnect(this));
+    if (this.thrift) destroyThriftConnection(this.thrift);
     this.thrift = thrift;
   }
   call(name, params = {}, header) {
@@ -200,7 +211,10 @@ class ThriftClient extends EventEmitter {
     this[METHODS][name] = chains;
     return this;
   }
-  end() { return this.thrift.end(); }
+  end() {
+    this.state = 'CLOSED';
+    destroyThriftConnection(that.thrift);
+  }
   hasRegistered(name) { return name in this[METHODS]; }
   trigger(name, ctx) {
     return Promise.resolve(ctx).then(this[METHODS][name]);
