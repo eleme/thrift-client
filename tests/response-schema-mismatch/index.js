@@ -3,7 +3,7 @@ const assert = require('assert');
 const path = require('path');
 
 const rel = './' + path.relative('', process.argv[1]);
-const done = name => console.log(`[32;1m[Done][0m [0;1m${rel} ${name}[0m`);
+const done = name => console.log(`[32;1m[Done][0m [0;1m${rel} ${name}[0m`); // eslint-disable-line
 
 tests.push(client => {
   return client.call('a').then(result => {

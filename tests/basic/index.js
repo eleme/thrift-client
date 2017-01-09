@@ -5,7 +5,7 @@ const path = require('path');
 const BigNumber = require('bignumber.js');
 
 const rel = './' + path.relative('', process.argv[1]);
-const done = name => console.log(`[32;1m[Done][0m [0;1m${rel} ${name}[0m`);
+const done = name => console.log(`[32;1m[Done][0m [0;1m${rel} ${name}[0m`); // eslint-disable-line
 
 tests.push(client => {
   let data = {
