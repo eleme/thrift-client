@@ -67,7 +67,7 @@ let tcReceive = (that, { id, type, name, fields }) => {
           } catch (error) {
             let fields = that.schema.encodeStruct(TApplicationException.SCHEMA, {
               message: error.stack || error.message || error.name,
-              type: TApplicationException.TYPE_ENUM.INTERNAL_ERROR 
+              type: TApplicationException.TYPE_ENUM.INTERNAL_ERROR
             }).fields;
             that.thrift.write({ id, type: 'EXCEPTION', name, fields });
           }
@@ -189,7 +189,12 @@ class ThriftClient extends EventEmitter {
       let fields = this.schema.encodeStruct(api.args, params).fields;
       let id = this[STORAGE].push({ resolve, reject });
       if (header) header = Header.encode(header);
-      this.thrift.write({ id, name, type: 'CALL', fields, header });
+      try {
+        this.thrift.write({ id, name, type: 'CALL', fields, header });
+      } catch (e) {
+        this[STORAGE].take(id)
+        reject(e);
+      }
     });
   }
   oneway(name, params = {}, header) {
