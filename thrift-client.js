@@ -16,7 +16,7 @@ class SocketClosedByBackEnd extends Error {
   }
 }
 
-class ThriftListener extends EventEmitter {
+class ThriftServerListener extends EventEmitter {
   constructor({ server, port, schema }) {
     super();
     Object.defineProperty(this, METHODS, { value: [] });
@@ -24,22 +24,33 @@ class ThriftListener extends EventEmitter {
       server.on('connection', socket => {
         let thrift = new Thrift(socket);
         let client = new ThriftClient({ thrift, schema });
-        client.on('error', () => thrift.end());
+        client.on('error', () => client.end());
         this[METHODS].forEach(args => client.register(...args));
       });
     } else {
-      Thrift.createServer(thrift => {
+      server = Thrift.createServer(thrift => {
         let client = new ThriftClient({ thrift, schema });
-        client.on('error', () => thrift.end());
+        client.on('error', () => client.end());
         this[METHODS].forEach(args => client.register(...args));
       }).listen(port);
     }
+    this.server = server;
   }
   register(...args) {
     this[METHODS].push(args);
     return this;
   }
+  address() {
+    return this.server.address();
+  }
+  listen(...args) {
+    return this.server.listen(...args);
+  }
+  close() {
+    return this.server.close();
+  }
 }
+
 
 let tcReceive = (that, { id, type, name, fields }) => {
   let api = that.schema.service[name];
@@ -149,7 +160,7 @@ const destroyThriftConnection = connection => {
 
 class ThriftClient extends EventEmitter {
   static start(args) {
-    return new ThriftListener(args);
+    return new ThriftServerListener(args);
   }
   constructor(options) {
     super();
@@ -192,7 +203,7 @@ class ThriftClient extends EventEmitter {
       try {
         this.thrift.write({ id, name, type: 'CALL', fields, header });
       } catch (e) {
-        this[STORAGE].take(id)
+        this[STORAGE].take(id);
         reject(e);
       }
     });
