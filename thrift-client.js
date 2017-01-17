@@ -104,6 +104,10 @@ let tcReceive = (that, { id, type, name, fields }) => {
       break;
     case 'EXCEPTION': {
       let item = that[STORAGE].take(id);
+      if (!item) {
+        return;
+      }
+      clearTimeout(item.timer);
       let params = that.schema.decodeStruct(TApplicationException.SCHEMA, { fields });
       item.reject(new TApplicationException(params.type, params.message));
       break;
@@ -111,14 +115,11 @@ let tcReceive = (that, { id, type, name, fields }) => {
     case 'REPLY': {
       let item = that[STORAGE].take(id);
       if (!item) {
-        return
+        return;
       }
+      clearTimeout(item.timer);
       let resolve = item.resolve;
       let reject = item.reject;
-      let timer = item.timer;
-      if (timer) {
-        clearTimeout(timer);
-      }
       if (fields.length === 0) fields = [ { id: 0, type: 'VOID' } ];
       let field = fields[0];
       if (field.id) {
@@ -214,9 +215,10 @@ class ThriftClient extends EventEmitter {
     return new Promise((resolve, reject) => {
       if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
       let fields = this.schema.encodeStruct(api.args, params).fields;
-      let timer = null;
+      let timer;
       const timeout = +settings.timeout;
-      if (!Object.is(timeout, NaN)) {
+      // timeout is Number or NaN, but NaN !== NaN.
+      if (timeout === timeout) {
         timer = setTimeout(() => {
           this[STORAGE].take(id);
           reject(new ThriftClientTimeoutError());
