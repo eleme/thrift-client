@@ -104,12 +104,20 @@ let tcReceive = (that, { id, type, name, fields }) => {
       break;
     case 'EXCEPTION': {
       let item = that[STORAGE].take(id);
+      if (!item) {
+        return;
+      }
+      clearTimeout(item.timer);
       let params = that.schema.decodeStruct(TApplicationException.SCHEMA, { fields });
       item.reject(new TApplicationException(params.type, params.message));
       break;
     }
     case 'REPLY': {
       let item = that[STORAGE].take(id);
+      if (!item) {
+        return;
+      }
+      clearTimeout(item.timer);
       let resolve = item.resolve;
       let reject = item.reject;
       if (fields.length === 0) fields = [ { id: 0, type: 'VOID' } ];
@@ -159,6 +167,14 @@ const destroyThriftConnection = connection => {
   connection.socket.destroy();
 };
 
+class ThriftClientTimeoutError extends Error {
+  constructor(message) {
+    super(message || 'ThriftClient call time out');
+    this.status = 504;
+    this.name = 'THRIFT_CLIENT_TIMEOUT';
+  }
+}
+
 class ThriftClient extends EventEmitter {
   static start(args) {
     return new ThriftServerListener(args);
@@ -194,12 +210,21 @@ class ThriftClient extends EventEmitter {
     if (this.thrift) destroyThriftConnection(this.thrift);
     this.thrift = thrift;
   }
-  call(name, params = {}, header) {
+  call(name, params = {}, header, settings = {}) {
     let api = this.schema.service[name];
     return new Promise((resolve, reject) => {
       if (!api) return reject(new Error(`API ${JSON.stringify(name)} not found`));
       let fields = this.schema.encodeStruct(api.args, params).fields;
-      let id = this[STORAGE].push({ resolve, reject });
+      let timer;
+      const timeout = +settings.timeout;
+      // timeout is Number or NaN, but NaN !== NaN.
+      if (timeout === timeout) {
+        timer = setTimeout(() => {
+          this[STORAGE].take(id);
+          reject(new ThriftClientTimeoutError());
+        }, timeout);
+      }
+      let id = this[STORAGE].push({ resolve, reject, timer });
       if (header) header = Header.encode(header);
       try {
         this.thrift.write({ id, name, type: 'CALL', fields, header });
