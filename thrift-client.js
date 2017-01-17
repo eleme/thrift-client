@@ -33,7 +33,7 @@ class ThriftServerListener extends EventEmitter {
         client.on('error', () => client.end());
         this[METHODS].forEach(args => client.register(...args));
       });
-      if (port) server.listen();
+      if (port) server.listen(+port);
     }
     this.server = server;
   }
