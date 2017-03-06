@@ -9,8 +9,8 @@
     "test": "cd tests && ./test.sh"
   },
   "dependencies": {
-    "node-thrift-protocol": "~0.1.14",
-    "thrift-parser": "~0.2.6"
+    "node-thrift-protocol": "~0.1.16",
+    "thrift-parser": "~0.3.0"
   },
   "devDependencies": {
     "bignumber.js": "^2.4.0"
