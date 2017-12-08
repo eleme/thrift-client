@@ -53,7 +53,7 @@ class ThriftServerListener extends EventEmitter {
 }
 
 
-let tcReceive = (that, { id, type, name, fields }) => {
+let tcReceive = (that, { id, type, name, fields, header }) => {
   let api = that.schema.service[name];
   switch (type) {
     case 'CALL':
@@ -61,6 +61,7 @@ let tcReceive = (that, { id, type, name, fields }) => {
         new Promise((resolve, reject) => {
           try {
             let params = that.schema.decodeStruct(api.args, { fields });
+            if (header) params.__header = Header.decode(header);
             resolve(that.trigger(name, params));
           } catch (error) {
             reject(error);
