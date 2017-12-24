@@ -31,6 +31,8 @@ server.register('zero', ctx => ctx);
 
 server.register('i64', ctx => ctx);
 
+server.register('etrace_thrift_header', ctx => ctx.__header.request_id);
+
 {
   let hehe = 0;
   server.register('oneway_set_hehe', ctx => hehe = ctx.hehe);
