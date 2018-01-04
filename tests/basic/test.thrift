@@ -55,4 +55,6 @@ service Test {
 
   I64Data i64(1: i64 data);
 
+  string etrace_thrift_header();
+
 }

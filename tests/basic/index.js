@@ -142,3 +142,11 @@ tests.push(client => {
     done('i64 response self');
   });
 });
+
+tests.push(client => {
+  const request_id = "thrift.cilent^^7323271402587046920|1514095637304"
+  return client.call('etrace_thrift_header', {}, { request_id }).then(result => {
+    assert.deepEqual(result, request_id);
+    done('etrace_thrift_header response request_id');
+  });
+});
